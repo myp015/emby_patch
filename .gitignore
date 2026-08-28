@@ -23,3 +23,7 @@ crack/
 
 # OS
 .DS_Store
+
+# 分析中间产物
+_cmp_work/
+_cmp_result*.md
