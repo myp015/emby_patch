@@ -41,6 +41,7 @@ COPY --from=base /system/MediaBrowser.Model.dll ./dllin/
 COPY --from=base /system/Emby.Web.dll ./dllin/
 COPY --from=base /system/dashboard-ui/modules/emby-apiclient/connectionmanager.js ./jsin/
 COPY --from=base /system/dashboard-ui/embypremiere/embypremiere.js ./jsin/
+COPY --from=base /system/dashboard-ui/modules/common/usersettings/usersettingsbuilder.js ./jsin/
 COPY --from=base /system/dashboard-ui/index.html ./htmlin/
 COPY --from=base /system/dashboard-ui/modules/emby-apiclient/connectionmanager.js ./webin/
 
@@ -48,9 +49,10 @@ COPY --from=base /system/dashboard-ui/modules/emby-apiclient/connectionmanager.j
 RUN dotnet patcher/EmbyPatch2.dll ./dllin/Emby.Server.Implementations.dll ./dllout/Emby.Server.Implementations.dll && \
     dotnet patcher/EmbyPatch2.dll ./dllin/MediaBrowser.Model.dll ./dllout/MediaBrowser.Model.dll && \
     dotnet patcher/EmbyPatch2.dll ./dllin/Emby.Web.dll ./dllout/Emby.Web.dll
-# JS patch（connectionmanager + embypremiere）
+# JS patch（connectionmanager + embypremiere + usersettingsbuilder 侧边栏默认关闭）
 RUN dotnet patcher/EmbyPatch2.dll js ./jsin/connectionmanager.js ./jsout/connectionmanager.js && \
-    dotnet patcher/EmbyPatch2.dll js ./jsin/embypremiere.js ./jsout/embypremiere.js
+    dotnet patcher/EmbyPatch2.dll js ./jsin/embypremiere.js ./jsout/embypremiere.js && \
+    dotnet patcher/EmbyPatch2.dll js ./jsin/usersettingsbuilder.js ./jsout/usersettingsbuilder.js
 # HTML patch（index.html 动态注入：emby-crx→head，require.js→apploader 后 body）
 RUN dotnet patcher/EmbyPatch2.dll html ./htmlin/index.html ./htmlout/index.html
 # Web.dll 嵌入破解 connectionmanager.js（复刻 amilys：官方40817→破解版）
@@ -68,6 +70,7 @@ COPY --from=patcher /work/webout/Emby.Web.dll /system/Emby.Web.dll
 # ===== 2) 破解 JS（文件系统版）=====
 COPY --from=patcher /work/jsout/connectionmanager.js /system/dashboard-ui/modules/emby-apiclient/connectionmanager.js
 COPY --from=patcher /work/jsout/embypremiere.js /system/dashboard-ui/embypremiere/embypremiere.js
+COPY --from=patcher /work/jsout/usersettingsbuilder.js /system/dashboard-ui/modules/common/usersettings/usersettingsbuilder.js
 
 # ===== 3) 动态注入后的 index.html（emby-crx→head / require.js→apploader后）=====
 COPY --from=patcher /work/htmlout/index.html /system/dashboard-ui/index.html

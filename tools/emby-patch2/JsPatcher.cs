@@ -20,6 +20,7 @@ namespace EmbyPatch2
             {
                 "connectionmanager.js" => PatchConnectionManager(s),
                 "embypremiere.js" => PatchEmbyPremiere(s),
+                "usersettingsbuilder.js" => PatchUserSettingsBuilder(s),
                 _ => s
             };
             File.WriteAllText(output, outS);
@@ -50,6 +51,15 @@ namespace EmbyPatch2
             const string old = "fetch(\"/\",{method:\"POST\",body:key,headers:{\"Content-Type\":\"application/x-www-form-urlencoded\"}}).then(function(response){return response.json()})";
             var newS = "fetch(\"/\",{method:\"POST\",body:key,headers:{\"Content-Type\":\"application/x-www-form-urlencoded\"}}).then(function(response){return " + fake + "})";
             s = s.Replace(old, newS);
+            return s;
+        }
+
+        // 侧边栏默认关闭：drawerStyle/settingsDrawerStyle 默认值 docked → closed
+        // （源码级修改，首次访问即关闭；用户后续操作仍覆盖记录值）
+        static string PatchUserSettingsBuilder(string s)
+        {
+            s = s.Replace("get(\"drawerstyle\",!1)||\"docked\"", "get(\"drawerstyle\",!1)||\"closed\"");
+            s = s.Replace("get(\"settingsdrawerstyle\",!1)||\"docked\"", "get(\"settingsdrawerstyle\",!1)||\"closed\"");
             return s;
         }
     }
