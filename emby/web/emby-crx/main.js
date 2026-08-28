@@ -213,8 +213,8 @@ class Home {
                 this.coverOptions
             )}" alt="Backdrop" style="">
 				<div class="misty-banner-info padded-left padded-right">
-					<h1>${detail.Name}</h1>
-					<div><p>${detail.Overview}</p></div>
+					<h1>${detail.Name ?? ''}</h1>
+					<div><p>${detail.Overview ?? ''}</p></div>
 					<div><button onclick="appRouter.showItem('${detail.Id}')">MORE</button></div>
 				</div>
 			</div>
