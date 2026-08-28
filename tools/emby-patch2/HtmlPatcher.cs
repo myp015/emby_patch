@@ -40,6 +40,14 @@ namespace EmbyPatch2
         private const string RequireBlock =
             "<script data-main=\"ext\" src=\"require.js\"></script>\n";
 
+        // 自执行脚本（Tampermonkey 风格，无 define()，require.js 加载会失效）：
+        //   必须直接 <script src> 引用，跟 emby-crx 同策略
+        //   embyLaunchPotplayer.js 外部播放器（107KB 老板指定源，监听 viewbeforeshow+DOM）
+        //   actorPlus.js 隐藏未知演员（无 define，自执行）
+        private const string DirectScriptsBlock =
+            "<script src=\"embyLaunchPotplayer.js\"></script>\n" +
+            "<script src=\"actorPlus.js\"></script>\n";
+
         public static int Patch(string input, string output)
         {
             var s = File.ReadAllText(input);
@@ -65,6 +73,13 @@ namespace EmbyPatch2
             removedReq = m2.Count;
             s = reqRegex.Replace(s, "");
 
+            // 移除已存在的 embyLaunchPotplayer.js / actorPlus.js 直接引用（避免重复注入）
+            var directRegex = new Regex(
+                "<script[^>]*src=\"(embyLaunchPotplayer|actorPlus)\\.js\"[^>]*>\\s*",
+                RegexOptions.IgnoreCase | RegexOptions.Singleline);
+            var mDirect = directRegex.Matches(s);
+            s = directRegex.Replace(s, "");
+
             // ========== 2) 重新注入（与 amilys 一致）==========
 
             // 2a. emby-crx → </head> 前
@@ -72,7 +87,8 @@ namespace EmbyPatch2
             if (hi < 0) { Console.WriteLine("  [HTML] !! 未找到 </head>"); return 1; }
             s = s.Insert(hi, CrxBlock);
 
-            // 2b. require.js(data-main=ext) → apploader.js 标签之后（body 内）
+            // 2b. require.js(data-main=ext) + 自执行脚本 → apploader.js 标签之后（body 内）
+            //     自执行脚本必须先加载（注册 viewbeforeshow/DOM 监听），再让 require.js 加载 ext.js
             int insertAt = -1;
             var ai = s.IndexOf("apploader.js", StringComparison.OrdinalIgnoreCase);
             if (ai >= 0)
@@ -85,13 +101,13 @@ namespace EmbyPatch2
                 var bi = s.IndexOf("</body>", StringComparison.OrdinalIgnoreCase);
                 insertAt = bi >= 0 ? bi : s.Length;   // 兜底 </body> 前
             }
-            s = s.Insert(insertAt, RequireBlock);
+            s = s.Insert(insertAt, DirectScriptsBlock + RequireBlock);
 
             File.WriteAllText(output, s);
 
             // ========== 3) 输出诊断 ==========
-            Console.WriteLine($"  [HTML] 清洗: 移除 emby-crx×{removedCrx} + require.js×{removedReq}");
-            Console.WriteLine($"  [HTML] 重新注入: emby-crx(</head>前) + require.js(apploader后,pos={insertAt})");
+            Console.WriteLine($"  [HTML] 清洗: 移除 emby-crx×{removedCrx} + require.js×{removedReq} + 自执行脚本×{mDirect.Count}");
+            Console.WriteLine($"  [HTML] 重新注入: emby-crx(</head>前) + 自执行脚本+require.js(apploader后,pos={insertAt})");
             // 验证最终顺序
             var scripts = Regex.Matches(s, "<script[^>]*src=\"([^\"]*)\"[^>]*>");
             Console.Write("  [HTML] 最终 script 顺序:");

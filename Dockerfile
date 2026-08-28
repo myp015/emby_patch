@@ -69,24 +69,24 @@ COPY --from=patcher /work/jsout/embypremiere.js /system/dashboard-ui/embypremier
 COPY --from=patcher /work/htmlout/index.html /system/dashboard-ui/index.html
 
 # ===== 4) 前端增强资源（amilys 容器内提取版，适配 4.9）=====
-COPY web/emby-crx/ /system/dashboard-ui/emby-crx/
-COPY web/ext.js /system/dashboard-ui/ext.js
-COPY web/require.js /system/dashboard-ui/require.js
+COPY emby/web/emby-crx/ /system/dashboard-ui/emby-crx/
+COPY emby/web/ext.js /system/dashboard-ui/ext.js
+COPY emby/web/require.js /system/dashboard-ui/require.js
 
 # ===== 5) 扩展模块（require.js 动态加载，ext.sh 配置 extmod）=====
-COPY files/embyLaunchPotplayer.js /system/dashboard-ui/embyLaunchPotplayer.js
-COPY files/embyHappy.js /system/dashboard-ui/embyHappy.js
-COPY files/ede.user.js /system/dashboard-ui/ede.user.js
-COPY files/actorPlus.js /system/dashboard-ui/actorPlus.js
-COPY files/danmaku.min.js /system/dashboard-ui/danmaku.min.js
+COPY emby/files/embyLaunchPotplayer.js /system/dashboard-ui/embyLaunchPotplayer.js
+COPY emby/files/embyHappy.js /system/dashboard-ui/embyHappy.js
+COPY emby/files/ede.user.js /system/dashboard-ui/ede.user.js
+COPY emby/files/actorPlus.js /system/dashboard-ui/actorPlus.js
+COPY emby/files/danmaku.min.js /system/dashboard-ui/danmaku.min.js
 
 # ===== 6) amilys 触发链（关键！插件生效的最后一环）=====
 # 6a. 默认扩展脚本模板（首次启动拷贝到 /config/config/ext.sh）
-COPY config/config/ext.sh /etc/ext.sh
+COPY emby/config/config/ext.sh /etc/ext.sh
 # 6b. 注册关闭脚本（写 mb.lic + hosts 伪 mb3admin + 注册配置）
-COPY config/regoff.sh /etc/regoff.sh
+COPY emby/config/regoff.sh /etc/regoff.sh
 # 6c. 覆盖官方 s6 服务：每次启动触发 ext.sh + regoff.sh（复刻 amilys）
-COPY config/services.d/emby-server/run /etc/services.d/emby-server/run
-COPY config/services.d/emby-server/finish /etc/services.d/emby-server/finish
+COPY emby/config/services.d/emby-server/run /etc/services.d/emby-server/run
+COPY emby/config/services.d/emby-server/finish /etc/services.d/emby-server/finish
 # 6d. 可执行位
 RUN chmod +x /etc/ext.sh /etc/regoff.sh /etc/services.d/emby-server/run /etc/services.d/emby-server/finish

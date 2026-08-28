@@ -27,7 +27,7 @@ echo "=========================================================="
 # 0) 依赖检查（index.html 已由 HtmlPatcher 构建期动态生成，不再需要顶层文件）
 command -v docker >/dev/null || { echo "缺 docker"; exit 1; }
 docker buildx version >/dev/null 2>&1 || { echo "缺 buildx"; exit 1; }
-[ -f files/embyLaunchPotplayer.js ] || { echo "缺 files/embyLaunchPotplayer.js"; exit 1; }
+[ -f emby/files/embyLaunchPotplayer.js ] || { echo "缺 emby/files/embyLaunchPotplayer.js"; exit 1; }
 [ -d patcher-bin ] || { echo "缺 patcher-bin（先跑 tools/emby-patch2 发布）"; exit 1; }
 
 # 1) buildx 实例

@@ -22,3 +22,16 @@ _verify*.md
 _runtime*
 _build_test_sh.py
 _final_check.py
+_find*.py
+_git*.py
+_push*.py
+_cmp*.py
+_cmp*.md
+_build_test*.py
+_debug*.py
+_final*.py
+_final*.md
+_boot_verify*
+_verify_final*
+_verify_work
+_verify_*
