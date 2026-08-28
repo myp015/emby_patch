@@ -39,7 +39,7 @@ namespace EmbyPatch2
             }
 
             // HTML patch 模式: EmbyPatch2 html <输入index.html> <输出index.html>
-            // 在 </head> 前插入 emby-crx 资源引用 + embyLaunchPotplayer.js 引用（适配任意版本，幂等）
+            // 在 </head> 前插入 emby-crx 资源引用 + require.js(ext) 动态入口（适配任意版本，幂等）
             if (args.Length >= 1 && args[0] == "html")
             {
                 if (args.Length != 3)
@@ -48,6 +48,18 @@ namespace EmbyPatch2
                     return 1;
                 }
                 return HtmlPatcher.Patch(args[1], args[2]);
+            }
+
+            // Web.dll 嵌入资源 patch 模式: EmbyPatch2 webdll <输入Emby.Web.dll> <破解connectionmanager.js> <输出dll>
+            // 复刻 amilys：把破解版 connectionmanager.js 替换进 Emby.Web.dll 嵌入资源（与 amilys 嵌入 40766B 同逻辑）
+            if (args.Length >= 1 && args[0] == "webdll")
+            {
+                if (args.Length != 4)
+                {
+                    Console.WriteLine("用法: EmbyPatch2 webdll <输入Emby.Web.dll> <破解connectionmanager.js> <输出dll>");
+                    return 1;
+                }
+                return WebDllPatcher.Patch(args[1], args[2], args[3]);
             }
 
             if (args.Length < 2)

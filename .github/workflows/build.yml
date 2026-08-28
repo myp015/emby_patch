@@ -20,7 +20,7 @@ jobs:
 
       - name: Publish EmbyPatch2
         run: |
-          dotnet publish patch2 -c Release -o patcher-bin --nologo
+          dotnet publish tools/emby-patch2 -c Release -o patcher-bin --nologo
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
