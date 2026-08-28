@@ -9,3 +9,16 @@ archive/
 
 # OS
 .DS_Store
+
+# 运行时验证/调试产物（不入库）
+_boot*.py
+_boot_result*.md
+_check*.py
+_check*.md
+_dbg_*
+_debug*
+_verify*.py
+_verify*.md
+_runtime*
+_build_test_sh.py
+_final_check.py

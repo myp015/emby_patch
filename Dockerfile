@@ -1,18 +1,21 @@
 # syntax=docker/dockerfile:1
 # ============================================================
-# Emby 官方镜像 + 自动破解/增强（复刻 amilys 方案 + emby-crx 移植）
+# Emby 官方镜像 + 自动破解/增强（复刻 amilys 完整方案）
 #
-# 关键设计：
-#   - 基础: 官方 emby/embyserver:latest（multi-arch，取 amd64+arm64）
-#   - 破解: 构建期对 base 的 DLL/JS 做语义 patch（与 amilys 破解一致）
-#   - Emby.Web.dll: 按 amilys 方法，把破解版 connectionmanager.js 嵌入其嵌入资源
-#     （官方嵌入 40817B=未破解，amilys 嵌入 40766B=破解；我们用 40723B 破解版嵌入）
-#   - index.html: 不 COPY 固定文件（不同版本结构不同），构建期从 base 提取
-#     后用 HTML 模式动态插入 emby-crx + require.js/ext 入口（幂等、版本无关）
-#   - emby-crx: 前端增强/美化资源（从 amilys/Nolovenodie emby-crx 移植）
-#   - ext.sh:/config/config/ext.sh 启动时 sed 注入 extmod 到 ext.js（amilys 模式）
-#   - 不再在构建期 dotnet publish（buildx 无 NuGet 缓存会卡死），
-#     直接 COPY 本机预编译的 patcher-bin 产物
+# 关键设计（三大触发链，全部与 amilys 一致）:
+#   1) index.html: 构建期从 base 提取 + 动态注入（HtmlPatcher v3）:
+#      - emby-crx 5 引用 → head 内
+#      - require.js(data-main="ext") → body 内 apploader.js 之后（顺序正确！）
+#   2) ext.sh 触发: /etc/services.d/emby-server/run 每次启动:
+#      首次 cp /etc/ext.sh → /config/config/ext.sh（用户可改，重启生效）
+#      → 执行 ext.sh → sed 注入 MediaId(emby-crx/config.js) + extmod(ext.js)
+#      → require.js 启动后按 extmod 动态加载 embyLaunchPotplayer/ede.user/actorPlus
+#   3) regoff.sh: /etc/regoff.sh 每次启动:
+#      写 /config/config/mb.lic + hosts 伪 mb3admin(199.255.98.60) + 注册配置
+#   + DLL IL patch（Emby.Server.Implementations 验证URL→伪服务器 + registered=true
+#     + MediaBrowser.Model IsMBSupporter→true）
+#   + Emby.Web.dll 嵌入破解版 connectionmanager.js（与 amilys Web.dll 一致）
+#   + 不再构建期 dotnet publish（buildx 无 NuGet 缓存会卡死）→ COPY 预编译产物
 #
 # 用法:
 #   docker buildx build --platform linux/amd64,linux/arm64 \
@@ -44,42 +47,46 @@ RUN dotnet patcher/EmbyPatch2.dll ./dllin/Emby.Server.Implementations.dll ./dllo
 # JS patch（connectionmanager + embypremiere）
 RUN dotnet patcher/EmbyPatch2.dll js ./jsin/connectionmanager.js ./jsout/connectionmanager.js && \
     dotnet patcher/EmbyPatch2.dll js ./jsin/embypremiere.js ./jsout/embypremiere.js
-# HTML patch（index.html 动态插入 emby-crx + require.js/ext 引入口，任意版本适配）
+# HTML patch（index.html 动态注入：emby-crx→head，require.js→apploader 后 body）
 RUN dotnet patcher/EmbyPatch2.dll html ./htmlin/index.html ./htmlout/index.html
-# Web.dll 嵌入破解 connectionmanager.js（复刻 amilys：官方40817→破解版，嵌入改URL）
+# Web.dll 嵌入破解 connectionmanager.js（复刻 amilys：官方40817→破解版）
 RUN dotnet patcher/EmbyPatch2.dll js ./webin/connectionmanager.js ./webout/connectionmanager.js && \
     dotnet patcher/EmbyPatch2.dll webdll ./dllin/Emby.Web.dll ./webout/connectionmanager.js ./webout/Emby.Web.dll
 
-# ---- 阶段D: 最终镜像 = base + 破解 + 增强 ----
+# ---- 阶段D: 最终镜像 = base + 破解 + 增强 + amilys 触发链 ----
 FROM base
 
-# 破解 DLL（本架构 base 生成，版本天然匹配）+ Web.dll（已嵌入破解 connectionmanager）
+# ===== 1) 破解 DLL（本架构 base 生成，版本天然匹配）=====
 COPY --from=patcher /work/dllout/Emby.Server.Implementations.dll /system/Emby.Server.Implementations.dll
 COPY --from=patcher /work/dllout/MediaBrowser.Model.dll /system/MediaBrowser.Model.dll
 COPY --from=patcher /work/webout/Emby.Web.dll /system/Emby.Web.dll
 
-# 破解 JS（文件系统版）
+# ===== 2) 破解 JS（文件系统版）=====
 COPY --from=patcher /work/jsout/connectionmanager.js /system/dashboard-ui/modules/emby-apiclient/connectionmanager.js
 COPY --from=patcher /work/jsout/embypremiere.js /system/dashboard-ui/embypremiere/embypremiere.js
 
-# 动态 patch 后的 index.html（含 emby-crx + require.js/ext 引用）
+# ===== 3) 动态注入后的 index.html（emby-crx→head / require.js→apploader后）=====
 COPY --from=patcher /work/htmlout/index.html /system/dashboard-ui/index.html
 
-# emby-crx 前端增强资源（amilys 容器内提取版，适配 4.9）
+# ===== 4) 前端增强资源（amilys 容器内提取版，适配 4.9）=====
 COPY web/emby-crx/ /system/dashboard-ui/emby-crx/
-
-# require.js 加载链（复刻 amilys）：ext.js 入口 + require.js 加载器
 COPY web/ext.js /system/dashboard-ui/ext.js
 COPY web/require.js /system/dashboard-ui/require.js
 
-# 扩展模块（require.js 动态加载，ext.sh 配置 extmod）：
-#   embyLaunchPotplayer.js（外部播放器，老板指定源，异步加载→播放按钮之后）
-#   embyHappy.js / ede.user.js（弹幕）/ actorPlus.js
+# ===== 5) 扩展模块（require.js 动态加载，ext.sh 配置 extmod）=====
 COPY files/embyLaunchPotplayer.js /system/dashboard-ui/embyLaunchPotplayer.js
 COPY files/embyHappy.js /system/dashboard-ui/embyHappy.js
 COPY files/ede.user.js /system/dashboard-ui/ede.user.js
 COPY files/actorPlus.js /system/dashboard-ui/actorPlus.js
 COPY files/danmaku.min.js /system/dashboard-ui/danmaku.min.js
 
-# ext.sh（/config/config/ext.sh，容器启动时运行，sed 注入 extmod 到 ext.js）
-COPY config/config/ext.sh /config/config/ext.sh
+# ===== 6) amilys 触发链（关键！插件生效的最后一环）=====
+# 6a. 默认扩展脚本模板（首次启动拷贝到 /config/config/ext.sh）
+COPY config/config/ext.sh /etc/ext.sh
+# 6b. 注册关闭脚本（写 mb.lic + hosts 伪 mb3admin + 注册配置）
+COPY config/regoff.sh /etc/regoff.sh
+# 6c. 覆盖官方 s6 服务：每次启动触发 ext.sh + regoff.sh（复刻 amilys）
+COPY config/services.d/emby-server/run /etc/services.d/emby-server/run
+COPY config/services.d/emby-server/finish /etc/services.d/emby-server/finish
+# 6d. 可执行位
+RUN chmod +x /etc/ext.sh /etc/regoff.sh /etc/services.d/emby-server/run /etc/services.d/emby-server/finish
