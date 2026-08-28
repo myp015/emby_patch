@@ -19,11 +19,15 @@
 #
 # 用法:
 #   docker buildx build --platform linux/amd64,linux/arm64 \
-#     -t kulai.ainas.cc/emby/embyserver:latest --push .
+#     --build-arg EMBY_VERSION=4.9.5.0 \
+#     -t kulai.ainas.cc/emby/embyserver:4.9.5.0 -t kulai.ainas.cc/emby/embyserver:latest --push .
 # ============================================================
 
+# 基础镜像版本（默认 latest；可传具体版本如 4.9.5.0）
+ARG EMBY_VERSION=latest
+
 # ---- 阶段A: 官方 base（multi-arch，buildx 按平台取）----
-FROM emby/embyserver:latest AS base
+FROM emby/embyserver:${EMBY_VERSION} AS base
 
 # ---- 阶段P: 运行 patch 工具（用预编译产物，不重新编译）----
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS patcher

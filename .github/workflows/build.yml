@@ -1,11 +1,21 @@
 # build.yml - EmbyPatch2 自动构建 workflow
-# 触发: push/手动。流程: checkout → dotnet publish patcher-bin → login 私有库 → buildx multi-arch → push
+# 触发: push main / 手动（可指定官方基础版本）
+# 版本策略:
+#   - 手动输入版本号（如 4.9.5.0）→ 基于该版本构建
+#   - 默认 latest → 自动探测官方 latest 对应版本号，打 <版本号> + latest 两个 tag
+# 流程: checkout → dotnet publish patcher-bin → 探测版本 → login → buildx multi-arch → push
 name: build-emby-patch
 
 on:
   push:
     branches: [main, master]
   workflow_dispatch:
+    inputs:
+      emby_version:
+        description: '官方 Emby 基础版本（默认 latest 自动探测；可填如 4.9.5.0）'
+        required: false
+        default: 'latest'
+        type: string
 
 jobs:
   build:
@@ -21,6 +31,15 @@ jobs:
       - name: Publish EmbyPatch2
         run: |
           dotnet publish tools/emby-patch2 -c Release -o patcher-bin --nologo
+
+      - name: Detect version
+        id: detect
+        run: |
+          INPUT_VERSION="${{ inputs.emby_version || 'latest' }}"
+          VERSION="$(bash scripts/detect-version.sh "$INPUT_VERSION")"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "base_tag=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
+          echo ">>> 官方基础: $INPUT_VERSION → 输出 tag: $VERSION"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -39,7 +58,11 @@ jobs:
         with:
           context: .
           file: Dockerfile
+          build-args: |
+            EMBY_VERSION=${{ steps.detect.outputs.base_tag }}
           platforms: linux/amd64,linux/arm64
           push: true
           provenance: false
-          tags: kulai.ainas.cc/emby/embyserver:latest
+          tags: |
+            kulai.ainas.cc/emby/embyserver:${{ steps.detect.outputs.version }}
+            kulai.ainas.cc/emby/embyserver:latest
