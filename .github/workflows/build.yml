@@ -1,8 +1,9 @@
 # build.yml - EmbyPatch2 自动构建 workflow
-# 触发: push main / 手动（可指定官方基础版本）
+# 触发: push main / 手动（可指定官方基础版本 + 目标私有库）
 # 版本策略:
 #   - 手动输入版本号（如 4.9.5.0）→ 基于该版本构建
 #   - 默认 latest → 自动探测官方 latest 对应版本号，打 <版本号> + latest 两个 tag
+# 私有库: 可选 kulai.ainas.cc（默认）/ docker.ainas.cc:5200
 # 流程: checkout → dotnet publish patcher-bin → 探测版本 → login → buildx multi-arch → push
 name: build-emby-patch
 
@@ -16,6 +17,14 @@ on:
         required: false
         default: 'latest'
         type: string
+      registry:
+        description: '目标私有库'
+        required: true
+        default: 'kulai.ainas.cc'
+        type: choice
+        options:
+          - kulai.ainas.cc
+          - docker.ainas.cc:5200
 
 jobs:
   build:
@@ -39,7 +48,8 @@ jobs:
           VERSION="$(bash scripts/detect-version.sh "$INPUT_VERSION")"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "base_tag=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
-          echo ">>> 官方基础: $INPUT_VERSION → 输出 tag: $VERSION"
+          echo "registry=${{ inputs.registry || 'kulai.ainas.cc' }}" >> "$GITHUB_OUTPUT"
+          echo ">>> 官方基础: $INPUT_VERSION → 输出 tag: $VERSION | 私有库: ${{ inputs.registry || 'kulai.ainas.cc' }}"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -49,7 +59,7 @@ jobs:
       - name: Login to private registry
         uses: docker/login-action@v3
         with:
-          registry: kulai.ainas.cc
+          registry: ${{ steps.detect.outputs.registry }}
           username: ${{ secrets.REGISTRY_USERNAME }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
 
@@ -64,5 +74,5 @@ jobs:
           push: true
           provenance: false
           tags: |
-            kulai.ainas.cc/emby/embyserver:${{ steps.detect.outputs.version }}
-            kulai.ainas.cc/emby/embyserver:latest
+            ${{ steps.detect.outputs.registry }}/emby/embyserver:${{ steps.detect.outputs.version }}
+            ${{ steps.detect.outputs.registry }}/emby/embyserver:latest

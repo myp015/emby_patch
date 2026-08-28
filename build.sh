@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# emby 增强镜像构建 + 上传 kulai.ainas.cc/emby/embyserver
+# emby 增强镜像构建 + 上传私有库
 # 基础: 官方 emby/embyserver (multi-arch)
 # 破解: 构建期自动 patch（DLL IL + JS + 前端注入 v3）
 # 增强: embyLaunchPotplayer + emby-crx + ext.sh/regoff 触发链
@@ -10,6 +10,7 @@
 #   ./build.sh --push               # 构建 amd64+arm64 上传 latest + 版本号
 #   EMBY_VERSION=4.9.5.0 ./build.sh --push   # 指定官方基础版本
 #   TAG=4.9.5.0 ./build.sh          # 自定义输出 tag（默认 = 探测的版本号）
+#   REGISTRY=docker.ainas.cc:5200 ./build.sh --push  # 指定推送库（默认 kulai.ainas.cc）
 #
 # 版本策略:
 #   - 不传 EMBY_VERSION: 用官方 latest，并自动探测其对应版本号（digest 匹配）
@@ -19,7 +20,7 @@
 set -e
 cd "$(dirname "$0")"
 
-REGISTRY="kulai.ainas.cc"
+REGISTRY="${REGISTRY:-kulai.ainas.cc}"
 REPO="emby/embyserver"
 EMBY_VERSION="${EMBY_VERSION:-latest}"
 TAG="${TAG:-$EMBY_VERSION}"
