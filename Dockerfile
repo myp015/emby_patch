@@ -58,8 +58,22 @@ COPY --from=patcher /work/jsout/embypremiere.js /system/dashboard-ui/embypremier
 # 动态 patch 后的 index.html（含 emby-crx + potplayer 引用）
 COPY --from=patcher /work/htmlout/index.html /system/dashboard-ui/index.html
 
-# emby-crx 前端增强资源（移植自 amilys/Nolovenodie emby-crx）
+# emby-crx 前端增强资源（amilys 容器内提取版，适配 4.9）
 COPY web/emby-crx/ /system/dashboard-ui/emby-crx/
 
-# 外部播放器增强（embyLaunchPotplayer.js）
+# require.js 加载链（复刻 amilys）：ext.js 入口 + require.js 加载器
+COPY web/ext.js /system/dashboard-ui/ext.js
+COPY web/require.js /system/dashboard-ui/require.js
+
+# 扩展模块（require.js 动态加载，ext.sh 配置 extmod）：
+#   embyLaunchPotplayer.js（外部播放器，老板指定源）
+#   embyHappy.js（amilys 容器提取）
+#   ede.user.js（弹幕）
+#   danmaku.min.js（弹幕库）
 COPY files/embyLaunchPotplayer.js /system/dashboard-ui/embyLaunchPotplayer.js
+COPY files/embyHappy.js /system/dashboard-ui/embyHappy.js
+COPY files/ede.user.js /system/dashboard-ui/ede.user.js
+COPY files/danmaku.min.js /system/dashboard-ui/danmaku.min.js
+
+# ext.sh（/config/config/ext.sh，容器启动时运行，sed 注入 extmod 到 ext.js）
+COPY config/config/ext.sh /config/config/ext.sh
