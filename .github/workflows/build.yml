@@ -1,0 +1,45 @@
+# build.yml - EmbyPatch2 自动构建 workflow
+# 触发: push/手动。流程: checkout → dotnet publish patcher-bin → login 私有库 → buildx multi-arch → push
+name: build-emby-patch
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish EmbyPatch2
+        run: |
+          dotnet publish patch2 -c Release -o patcher-bin --nologo
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64
+
+      - name: Login to private registry
+        uses: docker/login-action@v3
+        with:
+          registry: kulai.ainas.cc
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build and push multi-arch
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          provenance: false
+          tags: kulai.ainas.cc/emby/embyserver:latest

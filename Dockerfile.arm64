@@ -1,0 +1,18 @@
+# ============================================================
+# arm64 补丁版 Dockerfile
+# 基础镜像：amilys/embyserver_arm64v8 (arm64)
+# 用法（由 build-multiarch.sh 调用，或手动）：
+#   docker buildx build --platform linux/arm64 \
+#     -t emby-arm64:patched -f Dockerfile.arm64 \
+#     --build-arg DASH_DIR=/system/dashboard-ui --load .
+# ============================================================
+ARG ARM64_BASE=amilys/embyserver_arm64v8:latest
+ARG DASH_DIR=/system/dashboard-ui
+FROM ${ARM64_BASE}
+
+# 固化补丁：embyLaunchPotplayer.js（外部播放器增强，与架构无关）
+ARG DASH_DIR
+COPY files/embyLaunchPotplayer.js ${DASH_DIR}/embyLaunchPotplayer.js
+
+# 固化补丁：改版 index.html（已含 <script src="embyLaunchPotplayer.js"></script>）
+COPY index.html ${DASH_DIR}/index.html

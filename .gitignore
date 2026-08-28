@@ -1,0 +1,25 @@
+# 构建产物（GitHub Actions 里 dotnet publish 重新生成）
+patcher-bin/
+patch2/bin/
+patch2/obj/
+dump-tool/bin/
+dump-tool/obj/
+
+# 临时分析脚本（本地调试用，不入库）
+_*.py
+_*.sh
+*.log
+
+# 运行/验证残留
+run-patch-*.sh
+verify-*.sh
+check-*.sh
+_check2.sh
+_crack.sh
+_extract-crx.sh
+
+# 破解参考（来自 amilys 容器的原生文件，不随库分发——用 patch 生成）
+crack/
+
+# OS
+.DS_Store
