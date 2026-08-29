@@ -38,7 +38,7 @@ namespace EmbyPatch2
             "<script src=\"emby-crx/config.js\"></script>\n" +
             "<script src=\"emby-crx/main.js\"></script>\n";
         private const string SwiperBlock =
-            "<script src=\"emby-crx/home-swiper.js\"></script>\n";
+            "<script src=\"swiper_v2/home-swiper.js\"></script>\n";
 
         private static string SkinBlock(string skin) =>
             skin == "swiper_v2" ? SwiperBlock : CrxBlock;
