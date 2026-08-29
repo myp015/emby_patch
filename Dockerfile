@@ -74,20 +74,9 @@ COPY --from=patcher /work/jsout/usersettingsbuilder.js /system/dashboard-ui/modu
 # ===== 3) 动态注入后的 index.html（emby-crx→head / require.js→apploader后）=====
 COPY --from=patcher /work/htmlout/index.html /system/dashboard-ui/index.html
 
-# ===== 4) 前端增强资源（swiper_v2 首页轮播 + ext/require 加载器）=====
-COPY emby/web/emby-crx/ /system/dashboard-ui/emby-crx/
-COPY emby/web/ext.js emby/web/require.js /system/dashboard-ui/
+# ===== 4+5+6) 前端增强 + 触发链（本地 emby/，已按镜像路径结构组织）=====
+#    一条 COPY 到位：emby/system/... → /system/...，emby/etc/... → /etc/...
+COPY emby/ /
 
-# ===== 5) 扩展模块（外部播放器 + 附加增强）=====
-COPY emby/files/embyLaunchPotplayer.js emby/files/embyHappy.js emby/files/danmaku.min.js /system/dashboard-ui/
-
-# ===== 6) amilys 触发链（关键！插件生效的最后一环）=====
-# 6a. 默认扩展脚本模板（首次启动拷贝到 /config/config/ext.sh）
-COPY emby/config/config/ext.sh /etc/ext.sh
-# 6b. 注册关闭脚本（写 mb.lic + hosts 伪 mb3admin + 注册配置）
-COPY emby/config/regoff.sh /etc/regoff.sh
-# 6c. 覆盖官方 s6 服务：每次启动触发 ext.sh + regoff.sh（复刻 amilys）
-COPY emby/config/services.d/emby-server/run /etc/services.d/emby-server/run
-COPY emby/config/services.d/emby-server/finish /etc/services.d/emby-server/finish
-# 6d. 可执行位
+# 可执行位
 RUN chmod +x /etc/ext.sh /etc/regoff.sh /etc/services.d/emby-server/run /etc/services.d/emby-server/finish
