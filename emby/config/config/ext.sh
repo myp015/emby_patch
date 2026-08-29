@@ -18,19 +18,13 @@ echo "Emby扩展启动脚本"
 #echo -e "13.226.210.20     api.themoviedb.org" >> /etc/hosts
 #echo -e "13.225.142.99     api4.thetvdb.com" >> /etc/hosts
 
-## Emby-crx 美化 媒体库ID为空时不启用
+## 首页美化（皮肤由 index.html 注入，无需在此处理）
+##   - crx      : emby-crx 全家桶（style.css + common-utils/jquery/md5/config/main.js）
+##   - swiper_v2: home-swiper.js 首页轮播（单文件，自带 Swiper CSS）
 
-## 媒体库id，用逗号分隔。进入媒体库后url里的parentId
-## MediaId="21466,21463"
-MediaId=""
-
-sed -i '/this.parentId/s/""\|"[0-9]\+"\|"\([0-9]\+,\)\+[0-9]\+"/"'$MediaId'"/g' /system/dashboard-ui/emby-crx/config.js
-
-## 扩展插件: 
-# embyLaunchPotplayer 外部播放
-# ede.user 弹幕
-# actorPlus 未知演员隐藏
-#extmod='["embyLaunchPotplayer","ede.user","actorPlus"]'
+## 扩展模块（ext.js 由 require.js 加载，extmod 控制加载哪些）
+# embyLaunchPotplayer 外部播放（index.html 直接引用，不走 extmod）
+#extmod='["embyLaunchPotplayer"]'
 
 extmod='[]'
 sed -i '/\ extmod/s/\[.*\]/'$extmod'/g' /system/dashboard-ui/ext.js

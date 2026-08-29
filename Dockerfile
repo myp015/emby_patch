@@ -8,8 +8,8 @@
 #      - require.js(data-main="ext") → body 内 apploader.js 之后（顺序正确！）
 #   2) ext.sh 触发: /etc/services.d/emby-server/run 每次启动:
 #      首次 cp /etc/ext.sh → /config/config/ext.sh（用户可改，重启生效）
-#      → 执行 ext.sh → sed 注入 MediaId(emby-crx/config.js) + extmod(ext.js)
-#      → require.js 启动后按 extmod 动态加载 embyLaunchPotplayer/ede.user/actorPlus
+#      → 执行 ext.sh → sed 注入 extmod(ext.js)
+#      → require.js 启动后按 extmod 动态加载扩展
 #   3) regoff.sh: /etc/regoff.sh 每次启动:
 #      写 /config/config/mb.lic + hosts 伪 mb3admin(199.255.98.60) + 注册配置
 #   + DLL IL patch（Emby.Server.Implementations 验证URL→伪服务器 + registered=true
@@ -26,12 +26,16 @@
 # 基础镜像版本（默认 latest；可传具体版本如 4.9.5.0）
 ARG EMBY_VERSION=latest
 
+# 首页美化皮肤：crx（默认，emby-crx 全家桶）| swiper_v2（home-swiper.js 轮播）
+ARG SKIN=crx
+
 # ---- 阶段A: 官方 base（multi-arch，buildx 按平台取）----
 FROM emby/embyserver:${EMBY_VERSION} AS base
 
 # ---- 阶段P: 运行 patch 工具（用预编译产物，不重新编译）----
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS patcher
 WORKDIR /work
+ARG SKIN=crx
 COPY patcher-bin/ ./patcher/
 RUN mkdir -p ./dllin ./dllout ./jsin ./jsout ./htmlin ./htmlout ./webin ./webout
 
@@ -53,8 +57,9 @@ RUN dotnet patcher/EmbyPatch2.dll ./dllin/Emby.Server.Implementations.dll ./dllo
 RUN dotnet patcher/EmbyPatch2.dll js ./jsin/connectionmanager.js ./jsout/connectionmanager.js && \
     dotnet patcher/EmbyPatch2.dll js ./jsin/embypremiere.js ./jsout/embypremiere.js && \
     dotnet patcher/EmbyPatch2.dll js ./jsin/usersettingsbuilder.js ./jsout/usersettingsbuilder.js
-# HTML patch（index.html 动态注入：emby-crx→head，require.js→apploader 后 body）
-RUN dotnet patcher/EmbyPatch2.dll html ./htmlin/index.html ./htmlout/index.html
+# HTML patch（index.html 动态注入：皮肤→head，require.js→apploader 后 body）
+#   skin: crx（emby-crx 全家桶）| swiper_v2（home-swiper.js）
+RUN dotnet patcher/EmbyPatch2.dll html ./htmlin/index.html ./htmlout/index.html $SKIN
 # Web.dll 嵌入破解 connectionmanager.js（复刻 amilys：官方40817→破解版）
 RUN dotnet patcher/EmbyPatch2.dll js ./webin/connectionmanager.js ./webout/connectionmanager.js && \
     dotnet patcher/EmbyPatch2.dll webdll ./dllin/Emby.Web.dll ./webout/connectionmanager.js ./webout/Emby.Web.dll
@@ -75,16 +80,14 @@ COPY --from=patcher /work/jsout/usersettingsbuilder.js /system/dashboard-ui/modu
 # ===== 3) 动态注入后的 index.html（emby-crx→head / require.js→apploader后）=====
 COPY --from=patcher /work/htmlout/index.html /system/dashboard-ui/index.html
 
-# ===== 4) 前端增强资源（amilys 容器内提取版，适配 4.9）=====
+# ===== 4) 前端增强资源（swiper_v2 首页轮播 + ext/require 加载器）=====
 COPY emby/web/emby-crx/ /system/dashboard-ui/emby-crx/
 COPY emby/web/ext.js /system/dashboard-ui/ext.js
 COPY emby/web/require.js /system/dashboard-ui/require.js
 
-# ===== 5) 扩展模块（require.js 动态加载，ext.sh 配置 extmod）=====
+# ===== 5) 扩展模块（外部播放器 + 附加增强）=====
 COPY emby/files/embyLaunchPotplayer.js /system/dashboard-ui/embyLaunchPotplayer.js
 COPY emby/files/embyHappy.js /system/dashboard-ui/embyHappy.js
-COPY emby/files/ede.user.js /system/dashboard-ui/ede.user.js
-COPY emby/files/actorPlus.js /system/dashboard-ui/actorPlus.js
 COPY emby/files/danmaku.min.js /system/dashboard-ui/danmaku.min.js
 
 # ===== 6) amilys 触发链（关键！插件生效的最后一环）=====

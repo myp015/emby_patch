@@ -1,15 +1,13 @@
-# build.yml - EmbyPatch2 自动构建 workflow
-# 触发: push main / 手动（可指定官方基础版本 + 目标私有库）
+# build-emby-swiper_v2.yml - EmbyPatch2 构建（swiper_v2 皮肤版）
+# 触发: 仅手动（可指定官方基础版本 + 目标私有库）
+# 皮肤: swiper_v2（home-swiper.js 首页轮播，单文件，自带 Swiper CSS）
 # 版本策略:
 #   - 手动输入版本号（如 4.9.5.0）→ 基于该版本构建
 #   - 默认 latest → 自动探测官方 latest 对应版本号，打 <版本号> + latest 两个 tag
 # 私有库: 可选 kulai.ainas.cc（默认）/ docker.ainas.cc:5200
-# 流程: checkout → dotnet publish patcher-bin → 探测版本 → login → buildx multi-arch → push
-name: build-emby-patch
+name: build-emby-swiper_v2
 
 on:
-  push:
-    branches: [main, master]
   workflow_dispatch:
     inputs:
       emby_version:
@@ -49,7 +47,7 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "base_tag=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
           echo "registry=${{ inputs.registry || 'kulai.ainas.cc' }}" >> "$GITHUB_OUTPUT"
-          echo ">>> 官方基础: $INPUT_VERSION → 输出 tag: $VERSION | 私有库: ${{ inputs.registry || 'kulai.ainas.cc' }}"
+          echo ">>> 官方基础: $INPUT_VERSION → 输出 tag: $VERSION | 私有库: ${{ inputs.registry || 'kulai.ainas.cc' }} | 皮肤: swiper_v2"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -70,6 +68,7 @@ jobs:
           file: Dockerfile
           build-args: |
             EMBY_VERSION=${{ steps.detect.outputs.base_tag }}
+            SKIN=swiper_v2
           platforms: linux/amd64,linux/arm64
           push: true
           provenance: false

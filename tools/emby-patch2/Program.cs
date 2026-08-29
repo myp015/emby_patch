@@ -38,16 +38,17 @@ namespace EmbyPatch2
                 return JsPatcher.Patch(args[1], args[2]);
             }
 
-            // HTML patch 模式: EmbyPatch2 html <输入index.html> <输出index.html>
-            // 在 </head> 前插入 emby-crx 资源引用 + require.js(ext) 动态入口（适配任意版本，幂等）
+            // HTML patch 模式: EmbyPatch2 html <输入index.html> <输出index.html> [skin]
+            //   skin: crx（默认）| swiper_v2 —— 在 </head> 前注入对应首页美化皮肤
             if (args.Length >= 1 && args[0] == "html")
             {
-                if (args.Length != 3)
+                if (args.Length < 3)
                 {
-                    Console.WriteLine("用法: EmbyPatch2 html <输入index.html> <输出index.html>");
+                    Console.WriteLine("用法: EmbyPatch2 html <输入index.html> <输出index.html> [crx|swiper_v2]");
                     return 1;
                 }
-                return HtmlPatcher.Patch(args[1], args[2]);
+                var skin = args.Length > 3 ? args[3] : "crx";
+                return HtmlPatcher.Patch(args[1], args[2], skin);
             }
 
             // Web.dll 嵌入资源 patch 模式: EmbyPatch2 webdll <输入Emby.Web.dll> <破解connectionmanager.js> <输出dll>
