@@ -39,16 +39,11 @@ ARG SKIN=crx
 COPY patcher-bin/ ./patcher/
 RUN mkdir -p ./dllin ./dllout ./jsin ./jsout ./htmlin ./htmlout ./webin ./webout
 
-# 提取 base 的原始文件（按当前平台）—— 合并为一条 COPY 减少层数
-COPY --from=base \
-    /system/Emby.Server.Implementations.dll ./dllin/ \
-    /system/MediaBrowser.Model.dll ./dllin/ \
-    /system/Emby.Web.dll ./dllin/ \
-    /system/dashboard-ui/modules/emby-apiclient/connectionmanager.js ./jsin/ \
-    /system/dashboard-ui/embypremiere/embypremiere.js ./jsin/ \
-    /system/dashboard-ui/modules/common/usersettings/usersettingsbuilder.js ./jsin/ \
-    /system/dashboard-ui/index.html ./htmlin/ \
-    /system/dashboard-ui/modules/emby-apiclient/connectionmanager.js ./webin/
+# 提取 base 的原始文件（按当前平台）
+COPY --from=base /system/Emby.Server.Implementations.dll /system/MediaBrowser.Model.dll /system/Emby.Web.dll ./dllin/
+COPY --from=base /system/dashboard-ui/modules/emby-apiclient/connectionmanager.js /system/dashboard-ui/embypremiere/embypremiere.js /system/dashboard-ui/modules/common/usersettings/usersettingsbuilder.js ./jsin/
+COPY --from=base /system/dashboard-ui/index.html ./htmlin/
+COPY --from=base /system/dashboard-ui/modules/emby-apiclient/connectionmanager.js ./webin/
 
 # DLL IL patch（Emby.Server.Implementations + MediaBrowser.Model；Web 幂等保留）
 RUN dotnet patcher/EmbyPatch2.dll ./dllin/Emby.Server.Implementations.dll ./dllout/Emby.Server.Implementations.dll && \
@@ -68,30 +63,30 @@ RUN dotnet patcher/EmbyPatch2.dll js ./webin/connectionmanager.js ./webout/conne
 # ---- 阶段D: 最终镜像 = base + 破解 + 增强 + amilys 触发链 ----
 FROM base
 
-# ===== 1+2+3) 破解产物（DLL + JS + index.html，均来自 patcher 阶段）=====
-#    合并为一条 COPY 减少层数（DLL→/system/，JS→子目录，index.html→dashboard-ui）
-COPY --from=patcher \
-    /work/dllout/Emby.Server.Implementations.dll /system/Emby.Server.Implementations.dll \
-    /work/dllout/MediaBrowser.Model.dll /system/MediaBrowser.Model.dll \
-    /work/webout/Emby.Web.dll /system/Emby.Web.dll \
-    /work/jsout/connectionmanager.js /system/dashboard-ui/modules/emby-apiclient/connectionmanager.js \
-    /work/jsout/embypremiere.js /system/dashboard-ui/embypremiere/embypremiere.js \
-    /work/jsout/usersettingsbuilder.js /system/dashboard-ui/modules/common/usersettings/usersettingsbuilder.js \
-    /work/htmlout/index.html /system/dashboard-ui/index.html
+# ===== 1) 破解 DLL（本架构 base 生成，版本天然匹配）=====
+COPY --from=patcher /work/dllout/Emby.Server.Implementations.dll /work/dllout/MediaBrowser.Model.dll /work/webout/Emby.Web.dll /system/
 
-# ===== 4+5) 前端增强资源（本地 emby/：皮肤 + ext/require + 扩展模块）=====
-#    合并为一条 COPY（emby/web 各文件 → dashboard-ui 对应位置）
+# ===== 2) 破解 JS（文件系统版）=====
+COPY --from=patcher /work/jsout/connectionmanager.js /system/dashboard-ui/modules/emby-apiclient/connectionmanager.js
+COPY --from=patcher /work/jsout/embypremiere.js /system/dashboard-ui/embypremiere/embypremiere.js
+COPY --from=patcher /work/jsout/usersettingsbuilder.js /system/dashboard-ui/modules/common/usersettings/usersettingsbuilder.js
+
+# ===== 3) 动态注入后的 index.html（emby-crx→head / require.js→apploader后）=====
+COPY --from=patcher /work/htmlout/index.html /system/dashboard-ui/index.html
+
+# ===== 4) 前端增强资源（swiper_v2 首页轮播 + ext/require 加载器）=====
 COPY emby/web/emby-crx/ /system/dashboard-ui/emby-crx/
-COPY emby/web/ext.js /system/dashboard-ui/ext.js
-COPY emby/web/require.js /system/dashboard-ui/require.js
-COPY emby/files/embyLaunchPotplayer.js /system/dashboard-ui/embyLaunchPotplayer.js
-COPY emby/files/embyHappy.js /system/dashboard-ui/embyHappy.js
-COPY emby/files/danmaku.min.js /system/dashboard-ui/danmaku.min.js
+COPY emby/web/ext.js emby/web/require.js /system/dashboard-ui/
 
-# ===== 6) amilys 触发链（本地 emby/config：ext.sh + regoff.sh + services.d）=====
-#    合并为一条 COPY（各文件 → 对应 /etc 路径）
+# ===== 5) 扩展模块（外部播放器 + 附加增强）=====
+COPY emby/files/embyLaunchPotplayer.js emby/files/embyHappy.js emby/files/danmaku.min.js /system/dashboard-ui/
+
+# ===== 6) amilys 触发链（关键！插件生效的最后一环）=====
+# 6a. 默认扩展脚本模板（首次启动拷贝到 /config/config/ext.sh）
 COPY emby/config/config/ext.sh /etc/ext.sh
+# 6b. 注册关闭脚本（写 mb.lic + hosts 伪 mb3admin + 注册配置）
 COPY emby/config/regoff.sh /etc/regoff.sh
+# 6c. 覆盖官方 s6 服务：每次启动触发 ext.sh + regoff.sh（复刻 amilys）
 COPY emby/config/services.d/emby-server/run /etc/services.d/emby-server/run
 COPY emby/config/services.d/emby-server/finish /etc/services.d/emby-server/finish
 # 6d. 可执行位
