@@ -7283,6 +7283,8 @@ if (document.readyState === "loading") {
 
 
 // Emby 4.9.x 兼容补丁：隐藏原生“我的媒体”，避免与 V2 自带媒体库重复。
+// ★ 修复：此 IIFE 在 <head> 注入时立即执行，body 未解析 → observe(null) 报错，
+//   需等 body 就绪后再执行。
 (function hideNativeMediaForV2() {
     function hide() {
         const view = document.querySelector(".view:not(.hide)");
@@ -7295,8 +7297,17 @@ if (document.readyState === "loading") {
             }
         });
     }
-    hide();
-    const observer = new MutationObserver(hide);
-    observer.observe(document.body, { childList: true, subtree: true });
-    setTimeout(function () { observer.disconnect(); }, 30000);
+
+    function init() {
+        hide();
+        const observer = new MutationObserver(hide);
+        observer.observe(document.body, { childList: true, subtree: true });
+        setTimeout(function () { observer.disconnect(); }, 30000);
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+    } else {
+        init();
+    }
 })();
