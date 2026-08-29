@@ -73,7 +73,12 @@ namespace EmbyPatch2
             var fakeUrl = args.Length > 2 ? args[2] : "https://emby.ssr0.cn:433/validate";
 
             var resolver = new DefaultAssemblyResolver();
-            resolver.AddSearchDirectory(Path.GetDirectoryName(Path.GetFullPath(input)));
+            var inputDir = Path.GetDirectoryName(Path.GetFullPath(input));
+            resolver.AddSearchDirectory(inputDir);
+            // ★ 修复: 4.10 场景 Mono.Cecil 写入时需解析依赖程序集（如 MediaBrowser.Model）
+            //   加搜 base 的 /system（Emby 主 DLL 目录）和当前目录，避免 AssemblyResolutionException
+            resolver.AddSearchDirectory("/system");
+            resolver.AddSearchDirectory(Environment.CurrentDirectory);
             var rp = new ReaderParameters { AssemblyResolver = resolver };
 
             using var asm = AssemblyDefinition.ReadAssembly(input, rp);
