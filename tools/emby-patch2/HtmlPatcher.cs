@@ -92,14 +92,25 @@ namespace EmbyPatch2
             if (hi < 0) { Console.WriteLine("  [HTML] !! 未找到 </head>"); return 1; }
             s = s.Insert(hi, SkinBlock(skin));
 
-            // 2b. require.js(data-main=ext) + 自执行脚本 → apploader.js 标签之后（body 内）
-            //     自执行脚本必须先加载（注册 viewbeforeshow/DOM 监听），再让 require.js 加载 ext.js
+            // 2b. require.js(data-main=ext) + 自执行脚本 → apploader.js 完整标签之后（body 内）
+            //     ★ 修复: 不能用 IndexOf('>') 只看开标签结束——官方 index.html 可能是
+            //       <script src="apploader.js" defer></script>（带显式 </script>），
+            //       那会把注入内容嵌进 apploader 的 script 体内（HTML 嵌套损坏，插件失效）。
+            //       必须匹配 apploader 的完整标签块（含 </script>）再插入，与 amilys 一致。
             int insertAt = -1;
             var ai = s.IndexOf("apploader.js", StringComparison.OrdinalIgnoreCase);
             if (ai >= 0)
             {
-                var gt = s.IndexOf('>', ai);
-                if (gt >= 0) insertAt = gt + 1;   // 紧跟 apploader.js 标签结束
+                // 匹配完整 <script ...apploader.js...>...</script> 块（显式闭合）
+                // 或单标签 <script ...apploader.js...>（无显式闭合，HTML5 隐式）
+                var appMatch = Regex.Match(s,
+                    "<script[^>]*apploader\\.js[^>]*>\\s*(</script>)?",
+                    RegexOptions.IgnoreCase | RegexOptions.Singleline);
+                if (appMatch.Success)
+                {
+                    // 若匹配到显式 </script>，插到其后；否则插到单标签后（隐式闭合到 </body>）
+                    insertAt = appMatch.Index + appMatch.Length;
+                }
             }
             if (insertAt < 0)
             {
