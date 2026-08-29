@@ -60,19 +60,25 @@ RUN dotnet patcher/EmbyPatch2.dll html ./htmlin/index.html ./htmlout/index.html 
 RUN dotnet patcher/EmbyPatch2.dll js ./webin/connectionmanager.js ./webout/connectionmanager.js && \
     dotnet patcher/EmbyPatch2.dll webdll ./dllin/Emby.Web.dll ./webout/connectionmanager.js ./webout/Emby.Web.dll
 
+# 归集破解产物到镜像路径结构 /out/（阶段D 一条 COPY 到位）
+#   /out/system/Emby.Server.Implementations.dll / MediaBrowser.Model.dll / Emby.Web.dll
+#   /out/system/dashboard-ui/modules/emby-apiclient/connectionmanager.js
+#   /out/system/dashboard-ui/embypremiere/embypremiere.js
+#   /out/system/dashboard-ui/modules/common/usersettings/usersettingsbuilder.js
+#   /out/system/dashboard-ui/index.html
+RUN mkdir -p /out/system/dashboard-ui/modules/emby-apiclient /out/system/dashboard-ui/embypremiere /out/system/dashboard-ui/modules/common/usersettings && \
+    cp ./dllout/Emby.Server.Implementations.dll ./dllout/MediaBrowser.Model.dll ./webout/Emby.Web.dll /out/system/ && \
+    cp ./jsout/connectionmanager.js /out/system/dashboard-ui/modules/emby-apiclient/ && \
+    cp ./jsout/embypremiere.js /out/system/dashboard-ui/embypremiere/ && \
+    cp ./jsout/usersettingsbuilder.js /out/system/dashboard-ui/modules/common/usersettings/ && \
+    cp ./htmlout/index.html /out/system/dashboard-ui/
+
 # ---- 阶段D: 最终镜像 = base + 破解 + 增强 + amilys 触发链 ----
 FROM base
 
-# ===== 1) 破解 DLL（本架构 base 生成，版本天然匹配）=====
-COPY --from=patcher /work/dllout/Emby.Server.Implementations.dll /work/dllout/MediaBrowser.Model.dll /work/webout/Emby.Web.dll /system/
-
-# ===== 2) 破解 JS（文件系统版）=====
-COPY --from=patcher /work/jsout/connectionmanager.js /system/dashboard-ui/modules/emby-apiclient/connectionmanager.js
-COPY --from=patcher /work/jsout/embypremiere.js /system/dashboard-ui/embypremiere/embypremiere.js
-COPY --from=patcher /work/jsout/usersettingsbuilder.js /system/dashboard-ui/modules/common/usersettings/usersettingsbuilder.js
-
-# ===== 3) 动态注入后的 index.html（emby-crx→head / require.js→apploader后）=====
-COPY --from=patcher /work/htmlout/index.html /system/dashboard-ui/index.html
+# ===== 1+2+3) 破解产物（DLL + JS + index.html，已由 patcher 归集到 /out/system/）=====
+#    一条 COPY 到位：/out/system/... → /system/...
+COPY --from=patcher /out/ /
 
 # ===== 4+5+6) 前端增强 + 触发链（本地 emby/，已按镜像路径结构组织）=====
 #    一条 COPY 到位：emby/system/... → /system/...，emby/etc/... → /etc/...
