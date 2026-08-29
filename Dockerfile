@@ -37,6 +37,8 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS patcher
 WORKDIR /work
 ARG SKIN=crx
 COPY patcher-bin/ ./patcher/
+# 本地 emby/（前端增强 + 触发链，镜像路径结构）预置到 /emby/
+COPY emby/ /emby/
 RUN mkdir -p ./dllin ./dllout ./jsin ./jsout ./htmlin ./htmlout ./webin ./webout
 
 # 提取 base 的原始文件（按当前平台）
@@ -60,29 +62,25 @@ RUN dotnet patcher/EmbyPatch2.dll html ./htmlin/index.html ./htmlout/index.html 
 RUN dotnet patcher/EmbyPatch2.dll js ./webin/connectionmanager.js ./webout/connectionmanager.js && \
     dotnet patcher/EmbyPatch2.dll webdll ./dllin/Emby.Web.dll ./webout/connectionmanager.js ./webout/Emby.Web.dll
 
-# 归集破解产物到镜像路径结构 /out/（阶段D 一条 COPY 到位）
-#   /out/system/Emby.Server.Implementations.dll / MediaBrowser.Model.dll / Emby.Web.dll
-#   /out/system/dashboard-ui/modules/emby-apiclient/connectionmanager.js
-#   /out/system/dashboard-ui/embypremiere/embypremiere.js
-#   /out/system/dashboard-ui/modules/common/usersettings/usersettingsbuilder.js
-#   /out/system/dashboard-ui/index.html
-RUN mkdir -p /out/system/dashboard-ui/modules/emby-apiclient /out/system/dashboard-ui/embypremiere /out/system/dashboard-ui/modules/common/usersettings && \
-    cp ./dllout/Emby.Server.Implementations.dll ./dllout/MediaBrowser.Model.dll ./webout/Emby.Web.dll /out/system/ && \
-    cp ./jsout/connectionmanager.js /out/system/dashboard-ui/modules/emby-apiclient/ && \
-    cp ./jsout/embypremiere.js /out/system/dashboard-ui/embypremiere/ && \
-    cp ./jsout/usersettingsbuilder.js /out/system/dashboard-ui/modules/common/usersettings/ && \
-    cp ./htmlout/index.html /out/system/dashboard-ui/
+# 归集破解产物到 /emby/（与本地 emby/ 同结构，覆盖/补充对应文件）
+#   /emby/system/Emby.Server.Implementations.dll / MediaBrowser.Model.dll / Emby.Web.dll
+#   /emby/system/dashboard-ui/modules/emby-apiclient/connectionmanager.js
+#   /emby/system/dashboard-ui/embypremiere/embypremiere.js
+#   /emby/system/dashboard-ui/modules/common/usersettings/usersettingsbuilder.js
+#   /emby/system/dashboard-ui/index.html
+RUN mkdir -p /emby/system/dashboard-ui/modules/emby-apiclient /emby/system/dashboard-ui/embypremiere /emby/system/dashboard-ui/modules/common/usersettings && \
+    cp ./dllout/Emby.Server.Implementations.dll ./dllout/MediaBrowser.Model.dll ./webout/Emby.Web.dll /emby/system/ && \
+    cp ./jsout/connectionmanager.js /emby/system/dashboard-ui/modules/emby-apiclient/ && \
+    cp ./jsout/embypremiere.js /emby/system/dashboard-ui/embypremiere/ && \
+    cp ./jsout/usersettingsbuilder.js /emby/system/dashboard-ui/modules/common/usersettings/ && \
+    cp ./htmlout/index.html /emby/system/dashboard-ui/
 
 # ---- 阶段D: 最终镜像 = base + 破解 + 增强 + amilys 触发链 ----
 FROM base
 
-# ===== 1+2+3) 破解产物（DLL + JS + index.html，已由 patcher 归集到 /out/system/）=====
-#    一条 COPY 到位：/out/system/... → /system/...
-COPY --from=patcher /out/ /
-
-# ===== 4+5+6) 前端增强 + 触发链（本地 emby/，已按镜像路径结构组织）=====
-#    一条 COPY 到位：emby/system/... → /system/...，emby/etc/... → /etc/...
-COPY emby/ /
+# ===== 全部文件（破解产物 + 前端增强 + 触发链）=====
+#   已由 patcher 阶段聚合到 /emby/（镜像路径结构），一条 COPY 到位
+COPY --from=patcher /emby/ /
 
 # 可执行位
 RUN chmod +x /etc/ext.sh /etc/regoff.sh /etc/services.d/emby-server/run /etc/services.d/emby-server/finish
