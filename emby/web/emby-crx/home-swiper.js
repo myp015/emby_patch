@@ -7273,7 +7273,13 @@ var Swiper = function () {
    return ie.use(ge), ie
 }();
 // Run
-HomeSwiper.start();
+// ★ 修复：脚本被注入到 <head>（body 未解析），直接 start() 会因 document.body=null
+//   导致 MutationObserver.observe 报错。等 body 就绪后再启动。
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function () { HomeSwiper.start(); });
+} else {
+    HomeSwiper.start();
+}
 
 
 // Emby 4.9.x 兼容补丁：隐藏原生“我的媒体”，避免与 V2 自带媒体库重复。
