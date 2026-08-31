@@ -82,5 +82,12 @@ FROM base
 #   已由 patcher 阶段聚合到 /emby/（镜像路径结构），一条 COPY 到位
 COPY --from=patcher /emby/ /
 
-# 可执行位
-RUN chmod +x /etc/ext.sh /etc/regoff.sh /etc/services.d/emby-server/run /etc/services.d/emby-server/finish
+# 可执行位 + 移除官方基础镜像自带的 s6-overlay 原生 emby-server 服务
+# 4.10 起官方镜像在 /etc/s6-overlay/s6-rc.d/ 下自带一份原生 emby-server，
+# 与我们的 /etc/services.d/emby-server（amilys legacy 风格）同时存在
+# → 容器启动会拉起两个 EmbyServer 进程 → 单实例互斥锁（Global\{...}）竞争
+#   → 一方 WaitOne 超时打印 "another instance is already running" 退出
+#   → s6 finish 关停容器 → restart=always 无限重启
+# 4.9 无此目录，rm -rf 静默成功，跨版本安全。
+RUN chmod +x /etc/ext.sh /etc/regoff.sh /etc/services.d/emby-server/run /etc/services.d/emby-server/finish \
+    && rm -rf /etc/s6-overlay/s6-rc.d/emby-server
