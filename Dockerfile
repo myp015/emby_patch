@@ -83,5 +83,8 @@ COPY --from=patcher /emby/ /
 #   → 一方 WaitOne 超时打印 "another instance is already running" 退出
 #   → s6 finish 关停容器 → restart=always 无限重启
 # 4.9 无此目录，rm -rf 静默成功，跨版本安全。
+# ★ 必须同时删 bundle user 对 emby-server 的引用（user/contents.d/emby-server），
+#   否则 s6-rc-compile 解析 bundle 时 "undefined service name emby-server" 启动报错。
 RUN chmod +x /etc/regoff.sh /etc/services.d/emby-server/run /etc/services.d/emby-server/finish \
-    && rm -rf /etc/s6-overlay/s6-rc.d/emby-server
+    && rm -rf /etc/s6-overlay/s6-rc.d/emby-server \
+    && rm -f /etc/s6-overlay/s6-rc.d/user/contents.d/emby-server
