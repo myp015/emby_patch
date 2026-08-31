@@ -1466,7 +1466,33 @@ div.dialogContainer {
 	zoom: 0.5;
 }
 
-/* ★ 修复 misty-loading spinner 错位半圆：显式补全 Material spinner 合成规则（参考官方 loading.css） */
+/* ★ 修复 misty-loading spinner 错位半圆 + 丢失动画：自包含完整 Material spinner（参考官方 loading.css）
+   根因：swiper_v2 动态注入 customCss 与官方 loading.css 时序冲突，spinner 合成规则/旋转动画
+   未生效 → 两个半圆错位 或 圆圈不旋转。此处显式补全容器旋转+层旋转+半圆合成全部规则。 */
+.misty-loading .mdl-spinner {
+	position: relative !important;
+	width: 2em !important;
+	height: 2em !important;
+	display: inline-block !important;
+	margin: 0 !important;
+	top: auto !important;
+	left: auto !important;
+	-webkit-animation: mdl-spinner__container-rotate 1.568s linear infinite !important;
+	animation: mdl-spinner__container-rotate 1.568s linear infinite !important;
+	-webkit-transform: none !important;
+	transform: none !important;
+	pointer-events: none !important;
+}
+.misty-loading .mdl-spinner__layer {
+	position: absolute !important;
+	width: 100% !important;
+	height: 100% !important;
+}
+.misty-loading .mdl-spinner__layer-1 {
+	border-color: #fff !important;
+	-webkit-animation: mdl-spinner__fill-unfill-rotate 5332ms cubic-bezier(.4,0,.2,1) infinite both !important;
+	animation: mdl-spinner__fill-unfill-rotate 5332ms cubic-bezier(.4,0,.2,1) infinite both !important;
+}
 .misty-loading .mdl-spinner__circle-clipper {
 	display: inline-block !important;
 	position: relative !important;
@@ -1503,25 +1529,29 @@ div.dialogContainer {
 	-webkit-transform: rotate(-129deg) !important;
 	animation: mdl-spinner__right-spin 1333ms cubic-bezier(.4,0,.2,1) infinite both !important;
 }
+@keyframes mdl-spinner__container-rotate {
+	0% { -webkit-transform: none; transform: none; }
+	to { -webkit-transform: rotate(360deg); transform: rotate(360deg); }
+}
 @keyframes mdl-spinner__left-spin {
-	from { transform: rotate(130deg); }
-	50% { transform: rotate(-5deg); }
-	to { transform: rotate(130deg); }
+	from { -webkit-transform: rotate(130deg); transform: rotate(130deg); }
+	50% { -webkit-transform: rotate(-5deg); transform: rotate(-5deg); }
+	to { -webkit-transform: rotate(130deg); transform: rotate(130deg); }
 }
 @keyframes mdl-spinner__right-spin {
-	from { transform: rotate(-130deg); }
-	50% { transform: rotate(5deg); }
-	to { transform: rotate(-130deg); }
+	from { -webkit-transform: rotate(-130deg); transform: rotate(-130deg); }
+	50% { -webkit-transform: rotate(5deg); transform: rotate(5deg); }
+	to { -webkit-transform: rotate(-130deg); transform: rotate(-130deg); }
 }
 @keyframes mdl-spinner__fill-unfill-rotate {
-	12.5% { transform: rotate(135deg); }
-	25% { transform: rotate(270deg); }
-	37.5% { transform: rotate(405deg); }
-	50% { transform: rotate(540deg); }
-	62.5% { transform: rotate(675deg); }
-	75% { transform: rotate(810deg); }
-	87.5% { transform: rotate(945deg); }
-	to { transform: rotate(1080deg); }
+	12.5% { -webkit-transform: rotate(135deg); transform: rotate(135deg); }
+	25% { -webkit-transform: rotate(270deg); transform: rotate(270deg); }
+	37.5% { -webkit-transform: rotate(405deg); transform: rotate(405deg); }
+	50% { -webkit-transform: rotate(540deg); transform: rotate(540deg); }
+	62.5% { -webkit-transform: rotate(675deg); transform: rotate(675deg); }
+	75% { -webkit-transform: rotate(810deg); transform: rotate(810deg); }
+	87.5% { -webkit-transform: rotate(945deg); transform: rotate(945deg); }
+	to { -webkit-transform: rotate(1080deg); transform: rotate(1080deg); }
 }
 
 `;
