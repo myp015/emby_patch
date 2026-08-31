@@ -1466,93 +1466,25 @@ div.dialogContainer {
 	zoom: 0.5;
 }
 
-/* ★ 修复 misty-loading spinner 错位半圆 + 丢失动画：自包含完整 Material spinner（参考官方 loading.css）
-   根因：swiper_v2 动态注入 customCss 与官方 loading.css 时序冲突，spinner 合成规则/旋转动画
-   未生效 → 两个半圆错位 或 圆圈不旋转。此处显式补全容器旋转+层旋转+半圆合成全部规则。 */
-.misty-loading .mdl-spinner {
-	position: relative !important;
-	width: 2em !important;
-	height: 2em !important;
-	display: inline-block !important;
-	margin: 0 !important;
-	top: auto !important;
-	left: auto !important;
-	-webkit-animation: mdl-spinner__container-rotate 1.568s linear infinite !important;
-	animation: mdl-spinner__container-rotate 1.568s linear infinite !important;
-	-webkit-transform: none !important;
-	transform: none !important;
-	pointer-events: none !important;
-}
-.misty-loading .mdl-spinner__layer {
-	position: absolute !important;
-	width: 100% !important;
-	height: 100% !important;
-}
-.misty-loading .mdl-spinner__layer-1 {
-	border-color: #fff !important;
-	-webkit-animation: mdl-spinner__fill-unfill-rotate 5332ms cubic-bezier(.4,0,.2,1) infinite both !important;
-	animation: mdl-spinner__fill-unfill-rotate 5332ms cubic-bezier(.4,0,.2,1) infinite both !important;
-}
-.misty-loading .mdl-spinner__circle-clipper {
-	display: inline-block !important;
-	position: relative !important;
-	width: 50% !important;
-	height: 100% !important;
-	overflow: hidden !important;
-	border-color: inherit;
-}
-.misty-loading .mdl-spinner__circle {
-	box-sizing: border-box !important;
-	height: 100% !important;
-	width: 200% !important;
-	border-width: .21em !important;
-	border-style: solid !important;
-	border-color: inherit;
-	border-bottom-color: transparent !important;
+/* ★ 修复 misty-loading spinner：改用自包含单元素旋转圆圈（不依赖 mdl-spinner 多层合成/官方 loading.css）
+   之前用 mdl-spinner(circle-clipper/circleLeft/Right) 在 swiper_v2 场景下合成失败：
+   错位半圆 或 圆圈不旋转。此处用纯 border 圆环 + animation，任何环境稳定完整圆圈旋转。 */
+.misty-loading .misty-loading-spinner {
+	width: 48px !important;
+	height: 48px !important;
+	border: 4px solid rgba(255, 255, 255, .25) !important;
+	border-top-color: #fff !important;
 	border-radius: 50% !important;
-	position: absolute !important;
-	top: 0 !important;
-	bottom: 0 !important;
-	left: 0 !important;
-	right: 0 !important;
+	display: inline-block !important;
+	box-sizing: border-box !important;
+	-webkit-animation: misty-loading-spin 1s linear infinite !important;
+	animation: misty-loading-spin 1s linear infinite !important;
 }
-.misty-loading .mdl-spinner__circleLeft {
-	border-inline-end-color: transparent !important;
-	transform: rotate(129deg) !important;
-	-webkit-transform: rotate(129deg) !important;
-	animation: mdl-spinner__left-spin 1333ms cubic-bezier(.4,0,.2,1) infinite both !important;
+@keyframes misty-loading-spin {
+	0% { -webkit-transform: rotate(0deg); transform: rotate(0deg); }
+	100% { -webkit-transform: rotate(360deg); transform: rotate(360deg); }
 }
-.misty-loading .mdl-spinner__circleRight {
-	left: -100% !important;
-	border-inline-start-color: transparent !important;
-	transform: rotate(-129deg) !important;
-	-webkit-transform: rotate(-129deg) !important;
-	animation: mdl-spinner__right-spin 1333ms cubic-bezier(.4,0,.2,1) infinite both !important;
-}
-@keyframes mdl-spinner__container-rotate {
-	0% { -webkit-transform: none; transform: none; }
-	to { -webkit-transform: rotate(360deg); transform: rotate(360deg); }
-}
-@keyframes mdl-spinner__left-spin {
-	from { -webkit-transform: rotate(130deg); transform: rotate(130deg); }
-	50% { -webkit-transform: rotate(-5deg); transform: rotate(-5deg); }
-	to { -webkit-transform: rotate(130deg); transform: rotate(130deg); }
-}
-@keyframes mdl-spinner__right-spin {
-	from { -webkit-transform: rotate(-130deg); transform: rotate(-130deg); }
-	50% { -webkit-transform: rotate(5deg); transform: rotate(5deg); }
-	to { -webkit-transform: rotate(-130deg); transform: rotate(-130deg); }
-}
-@keyframes mdl-spinner__fill-unfill-rotate {
-	12.5% { -webkit-transform: rotate(135deg); transform: rotate(135deg); }
-	25% { -webkit-transform: rotate(270deg); transform: rotate(270deg); }
-	37.5% { -webkit-transform: rotate(405deg); transform: rotate(405deg); }
-	50% { -webkit-transform: rotate(540deg); transform: rotate(540deg); }
-	62.5% { -webkit-transform: rotate(675deg); transform: rotate(675deg); }
-	75% { -webkit-transform: rotate(810deg); transform: rotate(810deg); }
-	87.5% { -webkit-transform: rotate(945deg); transform: rotate(945deg); }
-	to { -webkit-transform: rotate(1080deg); transform: rotate(1080deg); }
-}
+
 
 `;
 
@@ -1781,16 +1713,7 @@ div.dialogContainer {
 		const load = `
 	<div class="misty-loading">
    <h1></h1>
-   <div class="mdl-spinner">
-      <div class="mdl-spinner__layer mdl-spinner__layer-1">
-         <div class="mdl-spinner__circle-clipper mdl-spinner__left">
-            <div class="mdl-spinner__circle mdl-spinner__circleLeft"></div>
-         </div>
-         <div class="mdl-spinner__circle-clipper mdl-spinner__right">
-            <div class="mdl-spinner__circle mdl-spinner__circleRight"></div>
-         </div>
-      </div>
-   </div>
+   <div class="misty-loading-spinner"></div>
 </div>
 			`;
 		document.body.insertAdjacentHTML('beforeend', load);
