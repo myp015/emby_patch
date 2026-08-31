@@ -4,24 +4,15 @@
 # EmbyServer 启动服务（复刻 amilys /etc/services.d/emby-server/run + 修复）
 # 每次容器启动：
 #   1) 确保 /config/config 存在（首次挂载空 /config 卷时没有！）
-#   2) 首次：cp /etc/ext.sh -> /config/config/ext.sh（用户可改，重启生效）
-#   3) 执行 /etc/regoff.sh（写 mb.lic + hosts 伪 mb3admin + 注册配置）
-#   4) 执行 /config/config/ext.sh（sed 注入 MediaId 到 emby-crx/config.js
-#      + extmod 到 ext.js → require.js 动态加载扩展模块）
-#   5) 启动 /system/EmbyServer（处理 PUID/PGID/UMASK/dri）
+#   2) 执行 /etc/regoff.sh（写 mb.lic + hosts 伪 mb3admin + 注册配置）
+#   3) 启动 /system/EmbyServer（处理 PUID/PGID/UMASK/dri）
+#   ※ ext.sh 已删除（2026-08-31）：前端插件默认全部加载，不再需要每次 sed 注入
 # ===================================================================
 
 # ★ 修复：首次运行时 /config/config 目录不存在（空 /config 卷）
 mkdir -p /config/config
 
-if [ -f "/config/config/ext.sh" ];then
-  chmod 777 /config/config/ext.sh
-else
-  cp /etc/ext.sh /config/config/ext.sh
-fi
-
 /etc/regoff.sh
-/config/config/ext.sh
 
 [ -n "$PUID" ] && UID="$PUID"
 [ -n "$PGID" ] && GID="$PGID"

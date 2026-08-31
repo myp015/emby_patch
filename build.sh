@@ -3,7 +3,7 @@
 # emby 增强镜像构建 + 上传私有库
 # 基础: 官方 emby/embyserver (multi-arch)
 # 破解: 构建期自动 patch（DLL IL + JS + 前端注入 v3）
-# 增强: embyLaunchPotplayer + emby-crx + ext.sh/regoff 触发链
+# 增强: embyHappy + embyLaunchPotplayer + swiper_v2轮播 + regoff 触发链
 #
 # 用法:
 #   ./build.sh                      # 构建 arm64 本地验证（不上传）
@@ -28,7 +28,7 @@ TAG="${TAG:-$EMBY_VERSION}"
 echo "=========================================================="
 echo "  官方基础: emby/embyserver:$EMBY_VERSION"
 echo "  破解: 构建期自动 patch（DLL IL + JS + HTML v3 + webdll）"
-echo "  触发: ext.sh(regoff) 自动注入 MediaId/extmod（复刻 amilys）"
+echo "  触发: regoff.sh 写 mb.lic + 前端增强直接嵌入 index.html"
 echo "=========================================================="
 
 # 0) 依赖检查

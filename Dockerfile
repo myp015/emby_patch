@@ -2,15 +2,14 @@
 # ============================================================
 # Emby 官方镜像 + 自动破解/增强（复刻 amilys 完整方案）
 #
-# 关键设计（三大触发链，全部与 amilys 一致）:
-#   1) index.html: 构建期从 base 提取 + 动态注入（HtmlPatcher v3）:
-#      - emby-crx 5 引用 → head 内
-#      - require.js(data-main="ext") → body 内 apploader.js 之后（顺序正确！）
-#   2) ext.sh 触发: /etc/services.d/emby-server/run 每次启动:
-#      首次 cp /etc/ext.sh → /config/config/ext.sh（用户可改，重启生效）
-#      → 执行 ext.sh → sed 注入 extmod(ext.js)
-#      → require.js 启动后按 extmod 动态加载扩展
-#   3) regoff.sh: /etc/regoff.sh 每次启动:
+# 关键设计（2026-08-31 精简版）:
+#   1) index.html: 构建期从 base 提取 + 动态注入（HtmlPatcher v5）:
+#      前端增强全部直接 <script> 嵌入 apploader.js 之后:
+#      - embyHappy.js            : 破解注册信息注入
+#      - embyLaunchPotplayer.js  : 外部播放器
+#      - swiper_v2/home-swiper.js: 首页海报轮播
+#      （已删除 emby-crx 全家桶 / ext.sh / ext.js / require.js / extmod 机制）
+#   2) regoff.sh: /etc/regoff.sh 每次启动:
 #      写 /config/config/mb.lic + hosts 伪 mb3admin(199.255.98.60) + 注册配置
 #   + DLL IL patch（Emby.Server.Implementations 验证URL→伪服务器 + registered=true
 #     + MediaBrowser.Model IsMBSupporter→true）
@@ -26,16 +25,12 @@
 # 基础镜像版本（默认 latest；可传具体版本如 4.9.5.0）
 ARG EMBY_VERSION=latest
 
-# 首页美化皮肤：crx（默认，emby-crx 全家桶）| swiper_v2（home-swiper.js 轮播）
-ARG SKIN=crx
-
 # ---- 阶段A: 官方 base（multi-arch，buildx 按平台取）----
 FROM emby/embyserver:${EMBY_VERSION} AS base
 
 # ---- 阶段P: 运行 patch 工具（用预编译产物，不重新编译）----
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS patcher
 WORKDIR /work
-ARG SKIN=crx
 COPY patcher-bin/ ./patcher/
 # 本地 emby/（前端增强 + 触发链，镜像路径结构）预置到 /emby/
 COPY emby/ /emby/
@@ -55,9 +50,8 @@ RUN dotnet patcher/EmbyPatch2.dll ./dllin/Emby.Server.Implementations.dll ./dllo
 RUN dotnet patcher/EmbyPatch2.dll js ./jsin/connectionmanager.js ./jsout/connectionmanager.js && \
     dotnet patcher/EmbyPatch2.dll js ./jsin/embypremiere.js ./jsout/embypremiere.js && \
     dotnet patcher/EmbyPatch2.dll js ./jsin/usersettingsbuilder.js ./jsout/usersettingsbuilder.js
-# HTML patch（index.html 动态注入：皮肤→head，require.js→apploader 后 body）
-#   skin: crx（emby-crx 全家桶）| swiper_v2（home-swiper.js）
-RUN dotnet patcher/EmbyPatch2.dll html ./htmlin/index.html ./htmlout/index.html $SKIN
+# HTML patch（index.html 注入前端增强：embyHappy + embyLaunchPotplayer + home-swiper，apploader 后）
+RUN dotnet patcher/EmbyPatch2.dll html ./htmlin/index.html ./htmlout/index.html
 # Web.dll 嵌入破解 connectionmanager.js（复刻 amilys：官方40817→破解版）
 RUN dotnet patcher/EmbyPatch2.dll js ./webin/connectionmanager.js ./webout/connectionmanager.js && \
     dotnet patcher/EmbyPatch2.dll webdll ./dllin/Emby.Web.dll ./webout/connectionmanager.js ./webout/Emby.Web.dll
@@ -89,5 +83,5 @@ COPY --from=patcher /emby/ /
 #   → 一方 WaitOne 超时打印 "another instance is already running" 退出
 #   → s6 finish 关停容器 → restart=always 无限重启
 # 4.9 无此目录，rm -rf 静默成功，跨版本安全。
-RUN chmod +x /etc/ext.sh /etc/regoff.sh /etc/services.d/emby-server/run /etc/services.d/emby-server/finish \
+RUN chmod +x /etc/regoff.sh /etc/services.d/emby-server/run /etc/services.d/emby-server/finish \
     && rm -rf /etc/s6-overlay/s6-rc.d/emby-server
