@@ -1466,6 +1466,64 @@ div.dialogContainer {
 	zoom: 0.5;
 }
 
+/* ★ 修复 misty-loading spinner 错位半圆：显式补全 Material spinner 合成规则（参考官方 loading.css） */
+.misty-loading .mdl-spinner__circle-clipper {
+	display: inline-block !important;
+	position: relative !important;
+	width: 50% !important;
+	height: 100% !important;
+	overflow: hidden !important;
+	border-color: inherit;
+}
+.misty-loading .mdl-spinner__circle {
+	box-sizing: border-box !important;
+	height: 100% !important;
+	width: 200% !important;
+	border-width: .21em !important;
+	border-style: solid !important;
+	border-color: inherit;
+	border-bottom-color: transparent !important;
+	border-radius: 50% !important;
+	position: absolute !important;
+	top: 0 !important;
+	bottom: 0 !important;
+	left: 0 !important;
+	right: 0 !important;
+}
+.misty-loading .mdl-spinner__circleLeft {
+	border-inline-end-color: transparent !important;
+	transform: rotate(129deg) !important;
+	-webkit-transform: rotate(129deg) !important;
+	animation: mdl-spinner__left-spin 1333ms cubic-bezier(.4,0,.2,1) infinite both !important;
+}
+.misty-loading .mdl-spinner__circleRight {
+	left: -100% !important;
+	border-inline-start-color: transparent !important;
+	transform: rotate(-129deg) !important;
+	-webkit-transform: rotate(-129deg) !important;
+	animation: mdl-spinner__right-spin 1333ms cubic-bezier(.4,0,.2,1) infinite both !important;
+}
+@keyframes mdl-spinner__left-spin {
+	from { transform: rotate(130deg); }
+	50% { transform: rotate(-5deg); }
+	to { transform: rotate(130deg); }
+}
+@keyframes mdl-spinner__right-spin {
+	from { transform: rotate(-130deg); }
+	50% { transform: rotate(5deg); }
+	to { transform: rotate(-130deg); }
+}
+@keyframes mdl-spinner__fill-unfill-rotate {
+	12.5% { transform: rotate(135deg); }
+	25% { transform: rotate(270deg); }
+	37.5% { transform: rotate(405deg); }
+	50% { transform: rotate(540deg); }
+	62.5% { transform: rotate(675deg); }
+	75% { transform: rotate(810deg); }
+	87.5% { transform: rotate(945deg); }
+	to { transform: rotate(1080deg); }
+}
+
 `;
 
 
