@@ -1,62 +1,50 @@
-# emby_patch — Emby 增强镜像（复刻 amilys 方案 + 双皮肤 + 外部播放器）
+# emby_patch — Emby 增强镜像（复刻 amilys 方案 + 前端增强三件套直嵌）
 
 > 项目性质：技术研究与项目管理用。基于官方 `emby/embyserver` 镜像构建，集成前端增强功能。
 
 ## 目标
-官方 `emby/embyserver` 镜像 → 构建期自动 patch → 集成**首页美化皮肤**（可切换 emby-crx / swiper_v2）+ **embyLaunchPotplayer（外部播放器）** → multi-arch → 推送私有库 `kulai.ainas.cc` / `docker.ainas.cc:5200`。
+官方 `emby/embyserver` 镜像 → 构建期自动 patch → 前端增强三件套直接嵌入 index.html → multi-arch → 推送私有库 `kulai.ainas.cc` / `docker.ainas.cc:5200`。
 
-## 皮肤选择（构建时 SKIN build-arg）
-| SKIN | 内容 | 说明 |
+## 前端增强（直接嵌入 index.html，apploader.js 之后）
+| 文件 | 作用 | 加载方式 |
 |---|---|---|
-| `crx`（默认）| emby-crx 全家桶（style.css + common-utils/jquery/md5/config/main.js）| 经典美化 |
-| `swiper_v2` | home-swiper.js（单文件，自带 Swiper CSS）| 首页轮播 V2，无 jQuery 依赖 |
+| `embyHappy.js` | 破解注册信息注入（localStorage） | index.html 直接 `<script>` |
+| `embyLaunchPotplayer.js` | 外部播放器 | index.html 直接 `<script>` |
+| `swiper_v2/home-swiper.js` | 首页海报轮播 | index.html 直接 `<script>` |
 
-对应工作流：`build-emby-crx.yml`（SKIN=crx）/ `build-emby-swiper_v2.yml`（SKIN=swiper_v2）。
+> 已删除：emby-crx 全家桶 / ext.sh / ext.js / require.js / danmaku.min.js / extmod 机制。
+> 三者均依赖 Emby 全局 require/apploader 环境 → 统一插在 apploader.js 之后。
 
 ## 镜像内前端加载链
 ```
-index.html（HtmlPatcher 构建期从 base 提取 + 动态注入，任意版本适配）:
-  <head>: 皮肤（crx 5 文件 或 swiper_v2 单文件）
+index.html（HtmlPatcher v5 构建期从 base 提取 + 动态注入，任意版本适配）:
   <body>: apploader.js（Emby 主应用）
-          embyLaunchPotplayer.js  ← 直接 <script> 引用（自执行，开箱即用）
-          <script data-main="ext" src="require.js">（动态入口）
-require.js → ext.js:
-  const extmod=["..."]   ← ext.sh 启动时 sed 注入（仅真 AMD 模块）
+          embyHappy.js          ← 直接 <script> 引用
+          embyLaunchPotplayer.js ← 直接 <script> 引用（自执行，开箱即用）
+          swiper_v2/home-swiper.js ← 直接 <script> 引用（IIFE 自执行）
 ```
-
-### 加载策略（重要）
-- **自执行脚本**（无 `define()`，Tampermonkey 风格）：embyLaunchPotplayer / 皮肤（emby-crx、home-swiper.js）
-  → **index.html 直接 `<script>` 引用**（不走 require.js，开箱即用）
-- **真 AMD 模块**（有 `define()`）：由 extmod/require.js 加载（ext.sh 配置）
-
-> ⚠️ 勿把无 `define()` 的自执行脚本放进 extmod 让 require.js 加载——require.js 加载后不执行，插件会失效。
 
 ## 启动触发链（复刻 amilys，容器每次启动）
 ```
 /init → s6 → /etc/services.d/emby-server/run:
   1. mkdir -p /config/config          ← 修复：空 /config 卷首次启动目录不存在
-  2. 首次 cp /etc/ext.sh → /config/config/ext.sh（用户可改，重启生效）
-  3. /etc/regoff.sh                   ← 写 mb.lic + hosts + 注册配置
-  4. /config/config/ext.sh            ← sed 注入 extmod(ext.js)
-  5. 启动 EmbyServer（处理 PUID/PGID/UMASK/dri）
+  2. /etc/regoff.sh                   ← 写 mb.lic + hosts + 注册配置
+  3. 启动 EmbyServer（处理 PUID/PGID/UMASK/dri）
 ```
 
 ## 目录结构
 ```
 emby/                        # ★ 资源根（web + files + config 的统一拷贝，构建用此目录）
-  web/                       # 前端增强
-    emby-crx/                # 皮肤：crx 全家桶（common-utils/jquery/md5/config/main/style.css）
-                             #      + swiper_v2（home-swiper.js）
-    embyLaunchPotplayer.js   # 外部播放器（老板指定源，内置 72.5KB Base64 图标，无 CDN 依赖）
-    embyHappy.js             # 附加增强
-    ext.js / require.js      # 动态加载入口
-  files/                     # 扩展模块（Dockerfile COPY 用）
-  config/                    # 触发链（ext.sh / regoff.sh / services.d）
+  system/dashboard-ui/       # 前端增强（构建期覆盖 base 对应文件）
+    embyHappy.js             # 破解注册注入
+    embyLaunchPotplayer.js   # 外部播放器（老板指定源，内置图标，无 CDN 依赖）
+    swiper_v2/home-swiper.js # 首页海报轮播
+  etc/                       # 触发链（regoff.sh / services.d）
 tools/
   emby-patch2/               # EmbyPatch2 源码（Mono.Cecil）
-    Program.cs               # 入口（DLL/JS/HTML/webdll 四种模式；html 支持 skin 参数）
+    Program.cs               # 入口（DLL/JS/HTML/webdll 四种模式）
     JsPatcher.cs             # JS 字符串替换（connectionmanager/embypremiere/usersettingsbuilder）
-    HtmlPatcher.cs           # HTML 注入（皮肤 + 自执行脚本 + require.js，清洗重注入，skin 可选）
+    HtmlPatcher.cs           # HTML 注入（前端增强三件套，apploader 后，清洗重注入，幂等）
     WebDllPatcher.cs         # 嵌入破解版 connectionmanager.js 到 Emby.Web.dll
 patcher-bin/                 # EmbyPatch2 本地预编译产物（构建期 COPY，避免 buildx 卡死）
 Dockerfile                   # 多阶段：base → patcher(COPY patcher-bin, patch) → final
@@ -68,7 +56,7 @@ build.sh                     # 一键构建（本地 arm64 验证；--push 上�
 ```
 EmbyPatch2 <输入DLL> <输出DLL> [伪服务器URL]   # DLL IL patch（URL + set_registered + IsMBSupporter）
 EmbyPatch2 js <输入JS> <输出JS>                # JS 字符串替换（connectionmanager/embypremiere/usersettingsbuilder）
-EmbyPatch2 html <输入index> <输出index> [crx|swiper_v2]  # index.html 注入（皮肤 + 自执行脚本 + require.js）
+EmbyPatch2 html <输入index> <输出index>        # index.html 注入前端增强三件套（apploader 后）
 EmbyPatch2 webdll <Web.dll> <破解cm.js> <输出> # 嵌入破解 connectionmanager.js 到 Emby.Web.dll
 ```
 - 源码改动后重新发布：`export PATH=$PATH:/root/.dotnet && dotnet publish tools/emby-patch2 -c Release -o patcher-bin`
@@ -79,14 +67,12 @@ EmbyPatch2 webdll <Web.dll> <破解cm.js> <输出> # 嵌入破解 connectionmana
 ./build.sh                       # 本地 arm64 验证（不上传）
 ./build.sh --push                # amd64 + arm64 multi-arch 上传 latest + 版本号
 EMBY_VERSION=4.9.5.0 ./build.sh --push  # 指定官方基础版本
-SKIN=swiper_v2 ./build.sh --push        # 指定皮肤（默认 crx）
 REGISTRY=docker.ainas.cc:5200 ./build.sh --push  # 指定私有库
 ```
-依赖：docker buildx、`patcher-bin/`（已发布）、`emby/files/embyLaunchPotplayer.js`。
+依赖：docker buildx、`patcher-bin/`（已发布）、`emby/` 资源目录。
 
-## GitHub Actions 工作流（均仅手动触发）
-- `build-emby-crx.yml`：SKIN=crx（emby-crx 皮肤）
-- `build-emby-swiper_v2.yml`：SKIN=swiper_v2（首页轮播）
+## GitHub Actions 工作流（仅手动触发）
+- `build-emby-swiper_v2.yml`：构建前端增强三件套镜像（无 SKIN 参数，Dockerfile 固定逻辑）
 - 流程：checkout → .NET8 → `dotnet publish tools/emby-patch2 -o patcher-bin` → buildx → login 私有库（secrets）→ `buildx --platform linux/amd64,linux/arm64 --push`
 - 输入：`emby_version`（默认 latest 自动探测）、`registry`（kulai.ainas.cc 默认 / docker.ainas.cc:5200）
 - Secrets：`REGISTRY_USERNAME` / `REGISTRY_PASSWORD`
@@ -115,10 +101,9 @@ REGISTRY=docker.ainas.cc:5200 ./build.sh --push  # 指定私有库
 
 ### HTML 注入（`HtmlPatcher.cs`，index.html 动态生成）
 ```
-1) 清洗：移除旧的皮肤引用 / require.js 注入 / 自执行脚本引用（任意顺序，幂等）
-2) 重注入：
-   head </head> 前:  皮肤（crx 5 文件 或 swiper_v2 home-swiper.js）
-   body apploader后:  embyLaunchPotplayer.js + require.js(data-main="ext")
+1) 清洗：移除旧注入（emby-crx 皮肤 / home-swiper / embyHappy / embyLaunchPotplayer / require.js data-main=ext）
+2) 重注入：apploader.js 完整标签后 → embyHappy + embyLaunchPotplayer + swiper_v2/home-swiper
+   （找不到 apploader 则兜底 </body> 前；幂等，重复执行不重复注入）
 ```
 
 ### Web.dll 嵌入（`WebDllPatcher.cs`）
@@ -129,10 +114,10 @@ REGISTRY=docker.ainas.cc:5200 ./build.sh --push  # 指定私有库
 
 ## 与 amilys 一致性
 - 前端资源：与 amilys 提取版一致（除 embyLaunchPotplayer 为老板指定新版源）
-- 触发链 ext.sh：与 amilys 一致（extmod 默认 `[]`，用户可改 /config/config/ext.sh 启用）
 - 有意差异：
-  1. embyLaunchPotplayer.js：老板指定新版源（107KB / 内置图标）
-  2. 皮肤可切换 crx / swiper_v2（构建时 SKIN 参数）
+  1. embyLaunchPotplayer.js：老板指定新版源（内置图标）
+  2. 前端增强三件套直接嵌入 index.html（不再走 ext.sh / require.js / extmod）
   3. run 脚本加 `mkdir -p /config/config`（修复空卷首次启动 cp 失败）
   4. regoff.sh 无条件写 mb.lic（修复目录已存在时跳过）
   5. usersettingsbuilder.js：侧边栏默认关闭（源码级）
+  6. 移除官方 s6-overlay 原生 emby-server 服务（修复 4.10 无限重启）
